@@ -1,0 +1,476 @@
+﻿<!doctype html>
+<html lang='en'>
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+
+    <title>500 Card Game</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font: 13px Helvetica, Arial;
+            background: darkslategray;
+        }
+
+        /*
+        form { padding: 3px; width: 100%; }
+        form input { border: 0; padding: 10px; width: 90%; margin-right: 0.5%; }
+        form button { width: 9%; border: none; padding: 10px; }
+        */
+
+
+        .loglist {
+            list-style-type: none;
+            margin: 0;
+            padding: 0;
+            height: 13em;
+            max-height: 13em;
+            overflow-x: hidden;
+            overflow-y: auto;
+            color: black;
+        }
+
+            .loglist li {
+                padding: 5px 10px;
+                background: #ddd;
+            }
+
+                .loglist li:nth-child(odd) {
+                    background: #eee;
+                }
+
+        .bordered {
+            border-radius: 0.4em;
+            border-style: solid;
+            border-color: teal;
+            border-width: 1px;
+            margin: 1em;
+            padding: 1em;
+        }
+
+        .padded {
+            margin: 1.5em;
+        }
+
+        .playName {
+            text-align: center;
+            font-size: medium;
+            font-weight: bold;
+            color: teal;
+        }
+
+        #video-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, 250px);
+            grid-auto-rows: 250px;
+        }
+
+        video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .scoreboard {
+            font-size: large;
+            font-weight: normal;
+            color: whitesmoke;
+        }
+
+        .trump {
+            background-color: yellow;
+        }
+
+        .notTrump {
+            height: 0.2em;
+            margin-right: 0.5em;
+            width: 85%;
+        }
+
+        .currentPlayer {
+            border-style: solid;
+            border-radius: 0.4em;
+            border-width: 2px;
+            border-color: lawngreen
+        }
+
+        .pastPlayer {
+            border-style: solid;
+            border-radius: 0.4em;
+            border-width: 2px;
+            border-color: red;
+        }
+
+        .playCard {
+            width: 100%;
+        }
+
+        .scoresContainer {
+            display: flex;
+            justify-content: center;
+            align-items: stretch;
+            align-content: stretch;
+            padding: 1em;
+            background-color: teal;
+            margin-bottom: 1em;
+        }
+
+        table.sortable {
+            border-collapse: collapse;
+            width: 100%;
+            max-height: 10em;
+        }
+
+            table.sortable th, table.sortable td {
+                padding: 10px;
+                text-align:center;
+            }
+
+            table.sortable thead {
+                background-color: #000;
+                color: #fff;
+                overflow-y: auto;
+                height: 100px;
+            }
+
+            table.sortable th:hover {
+                cursor: pointer;
+            }
+            table.sortable td {
+                text-align: center;
+            }
+
+            /*
+
+            table.sortable td:nth-child(1) {
+                text-align: center;
+            }
+
+            table.sortable td:nth-child(2) {
+                text-align: center;
+            }
+
+            table.sortable td:nth-child(3) {
+                text-align: center;
+            }
+
+            table.sortable td:nth-child(4) {
+                text-align: center;
+            }
+
+            table.sortable td:nth-child(5) {
+                text-align: center;
+            } */
+    </style>
+
+
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.3.1/dist/jquery.min.js"></script>
+    <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/fomantic-ui@2.8.7/dist/semantic.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/fomantic-ui@2.8.7/dist/semantic.min.js"></script>
+
+    <link rel="stylesheet" type="text/css" href="https://unpkg.com/cardsJS/dist/cards.min.css" />
+    <script src="https://unpkg.com/cardsJS/dist/cards.min.js" type="text/javascript"></script>
+    <script>
+        const ROOM_ID = '<%= roomID %>'  // rendered by server (replaces roomID with server-side roomID variable
+    </script>
+    <script src="/socket.io/socket.io.js" defer></script>
+    <script src="/index.js" defer></script>
+    <script src="/sortable.js" defer></script>
+    <script src="https://unpkg.com/floatthead" defer></script>
+
+</head>
+
+<body style='background:darkslategrey'>
+    <div class="ui menu" style="margin-bottom:2px">
+        <div class="header item"
+             style="padding-right:2em;background-color: darkslategray;color:whitesmoke;font-size: large;">
+            Five Hundred - The Card Game
+        </div>
+        <div class="right item active">
+            <span id="player" style="font-size:1em;font-weight: bold;color:darkslategrey"></span>
+        </div>
+    </div>
+
+    <div id='video-grid'></div>
+
+    <div id='mainPanel'>
+        <div id='gameMsgPanel' class="ui message">
+            <div id='gameMsgHdr' class="header">Waiting for more players</div>
+            <p id='gameMsgText'>As soon as four players join, the game will start</p>
+        </div>
+
+        <div id='bidPanel' class="ui raised teal hidden segment " style="margin:0">
+            <span id='currentBid' style="font-size:larger">Current Bid: None</span>
+            <hr />
+            <div id='yourBid'>
+                <span>Your Bid:</span>
+
+                <select id='ddlBids' class="ui selection dropdown" style="padding-top:0;padding-bottom:0;"></select>
+
+                <button id='placeBid' class="ui teal button" onclick='PlaceBid(false);return false;'>Place Bid</button>
+                <button id='passBid' class="ui button" onclick="PlaceBid(true);return false;">Pass</button>
+            </div>
+        </div>
+
+        <div class="scoresContainer">
+            <div style="width:40%">
+                <span id='teamAscore' class='scoreboard' style='padding-left: 1em;'>Team A</span>
+            </div>
+            <div style="width:20%;text-align:center">
+                <span class='scoreboard'>Bid </span>
+                <span id="bid" class="scoreboard"></span>
+                <span id="bidSuit" class="scoreboard"></span>
+            </div>
+            <div style="width:40%;text-align:right">
+                <span id='teamBscore' class='scoreboard'>Team B</span>
+            </div>
+        </div>
+        <div id="obsPanel" class="scoresContainer">
+            <select id="playerToObserve" class="ui selection dropdown">
+            </select>
+        </div>
+
+        <div id='gridPanel' class="ui grid" style="width:100%">
+            <div class="row">
+                <div class="ten wide column padded">
+                    <div class="ui raised black inverted segment" style="min-height:240px">
+                        <div class="ui teal ribbon label">My Hand</div>
+
+                        <div class="ui centered grid" style="margin-left:1em;margin-right:1em;">
+                            <div class="row">
+                                <div style="display:inline-block;padding-top:0.3em;">
+                                    <div style="text-align:center;height:0.5em"><div id="trump-spades" class="notTrump"></div></div>
+                                    <div id='hand-spades' class="hand vhand-compact" style="display:inline-block">
+                                        <img class='card' src='cards/AS.svg'>
+                                    </div>
+                                </div>
+                                <div style="display:inline-block;padding-top:0.3em;">
+                                    <div style="text-align:center;height:0.5em"><div id="trump-clubs" class="notTrump"></div></div>
+                                    <div id='hand-clubs' class="hand vhand-compact" style="display:inline-block">
+                                    </div>
+                                </div>
+                                <div style="display:inline-block;padding-top:0.3em;">
+                                    <div style="text-align:center;height:0.5em"><div id="trump-diamonds" class="notTrump"></div></div>
+                                    <div id='hand-diamonds' class="hand vhand-compact" style="display:inline-block">
+                                    </div>
+                                </div>
+                                <div style="display:inline-block;padding-top:0.3em;">
+                                    <div style="text-align:center;height:0.5em"><div id="trump-hearts" class="notTrump"></div></div>
+                                    <div id='hand-hearts' class="hand vhand-compact" style="display:inline-block">
+                                    </div>
+                                </div>
+                                <div style="display:inline-block;padding-top:0.3em;">
+                                    <div style="text-align:center;height:0.5em"><div class="notTrump"></div></div>
+                                    <div id='hand-extras' class="hand vhand-compact" style="display:inline-block">
+                                    </div>
+                                </div>
+                                <div style="display:inline-block;padding-top:0.3em;">
+                                    <div style="text-align:center;height:0.5em"><div class="notTrump"></div></div>
+                                    <div id='hand-middle' class="hand vhand-compact" style="display:inline-block">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div id='fastPlay' class="ui checkbox">
+                        <input type="checkbox" name="cbFastPlay">
+                        <label style='color:whitesmoke;padding-right: 3em;'>Fast-play card on click</label>
+                    </div>
+                    <div id='validOnly' class="ui checkbox">
+                        <input type="checkbox" name="cbValidOnly">
+                        <label style='color:whitesmoke;padding-right: 3em;'>Show only valid cards in hand</label>
+                    </div>
+                    <span id="cardCount" style='color:whitesmoke'>Cards: </span>
+                </div>
+                <div class="four wide column padded">
+                    <div class="ui raised black inverted segment" style="min-height:240px;min-width:240px">
+                        <div class="ui teal right ribbon label">Play</div>
+                        <br />
+                        <table style='width:100%'>
+                            <tr>
+                                <td style='width:33%'></td>
+                                <td id='T0P0' style='width:33%;text-align: center;'>
+                                    <span id='T0P0name' class='playName'></span><br />
+                                    <img id='T0P0card' class='playCard' src='' />
+                                </td>
+                                <td style='width:33%'></td>
+                            </tr>
+                            <tr>
+                                <td id='T1P1' style='text-align: center;'>
+                                    <span id='T1P1name' class='playName'></span><br />
+                                    <img id='T1P1card' class='playCard' src='' />
+                                </td>
+                                <td></td>
+                                <td id='T1P0' style='text-align: center;'>
+                                    <span id='T1P0name' class='playName'></span><br />
+                                    <img id='T1P0card' class='playCard' src='' />
+                                </td>
+                            </tr>
+                            <tr>
+                                <td></td>
+                                <td id='T0P1' style='text-align: center;'>
+                                    <span id='T0P1name' class='playName'></span><br />
+                                    <img id='T0P1card' class='playCard' src=''></img>
+                                </td>
+                                <td></td>
+                            </tr>
+                        </table>
+                    </div>
+
+                </div>
+            </div>
+            <div class="row">
+                <div class="four wide column padded">
+                    <div class="ui raised black inverted segment" style="height:20em">
+                        <div class="ui teal ribbon label">Chat</div>
+                        <br />
+                        <ul id="messages" class="loglist"></ul>
+
+                        <div class="ui action input" style="width:80%">
+                            <input id="m" type="text" style="width:90%" placeholder="Type your message here...">
+                            <button class="ui button" onclick="SendChatMessage();return false;">Send</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="six wide column padded">
+                    <div class="ui raised black inverted segment" style="height:20em;text-align:center">
+                        <div class="ui teal label" style="text-align:center">Leaderboard</div>
+                        <br />
+                        <div id="leaderboard" style="overflow:auto;max-height:16em"></div>
+                    </div>
+                </div>
+                <div class="four wide column padded">
+                    <div class="ui raised black inverted segment" style="height:20em">
+                        <div class="ui teal right ribbon label">Game Info</div>
+                        <br />
+                        <span><b>Team A</b></span><br />
+                        <span style="padding-left:1em" id="teamAplayers"><b>Players:</b></span>
+                        <br />
+                        <br />
+                        <span><b>Team B</b></span><br />
+                        <span style="padding-left:2em" id="teamBplayers"><b>Players:</b></span>
+                        <br />
+                        <br />
+                        <span><b>Observers</b></span><br />
+                        <span style="padding-left:2em" id="observers"><b>Observers:</b></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="sixteen wide column">
+                    <hr />
+                    <div class="ui teal right button" onclick="StartGame(true); return false;">Restart Game</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id='approveDiscard' class="ui mini inverted modal hidden">
+        <div class="header">Discard this card?</div>
+        <div class="content">
+            <p>Do you want to discard the <span id='discardCard'></span></p>
+            <span id='discardsRemaining'></span>
+        </div>
+        <div class="actions">
+            <div class="ui approve button">Yes</div>
+            <div class="ui cancel button">No</div>
+        </div>
+    </div>
+
+    <div id='approvePlay' class="ui mini inverted modal hidden">
+        <div class="header">Play this card?</div>
+        <div class="content">
+            <p>Do you want to play the <span id='cardToPlay'></span>?</p>
+        </div>
+        <div class="actions">
+            <div class="ui approve button">Yes</div>
+            <div class="ui cancel button">No</div>
+        </div>
+    </div>
+
+    <div id='illegalPlay' class="ui mini inverted modal hidden">
+        <div class="header">This is not a valid card to play!</div>
+        <div class="content">
+            <p>The <span id='illegalCard'></span> can not be played in the current context.</p>
+        </div>
+        <div class="actions">
+            <div class="ui approve button">Continue</div>
+        </div>
+    </div>
+
+
+    <div id='confirmBid' class="ui mini inverted modal hidden">
+        <div class="header">Confirm Bid</div>
+        <div class="content">
+            <p>Are you sure you want to bid <span id='proposedBid'></span>?</p>
+        </div>
+        <div class="actions">
+            <div class="ui approve button">Yes</div>
+            <div class="ui cancel button">No</div>
+        </div>
+    </div>
+
+    <div id='handCompleted' class="ui mini inverted modal hidden">
+        <div id="hdrHand" class="header"></div>
+        <div class="content">
+            <p><span id='contentHand'></span><p>
+            <hr/>
+            <img id="handCompletedImg" style="width:100%" src="" />
+        </div>
+        <div class="actions">
+            <div class="ui approve button">Continue</div>
+        </div>
+    </div>
+    
+
+    <div id='gameCompleted' class="ui mini inverted modal hidden">
+        <div id="winner" class="header"></div>
+        <div class="content">
+            <p><span id='loser'></span><p>
+        <hr />
+        <img id="gameCompletedImg" style="width:100%" src="" />
+        </div>
+        <div class="actions">
+            <div class="ui approve button">Continue</div>
+        </div>
+    </div>
+
+    <div id="join" class="ui overlay fullscreen modal">
+        <div class="header">Welcome to Five Hundred!</div>
+        <div class="content">
+
+            <div id='joinpanel' style="width:50%">
+                <div class="ui labeled input">
+                    <div class="ui label">Name:</div>
+                    <input id="username1" type="text" placeholder="Your name..." />
+                </div>
+                <hr />
+                <br />
+                <div class="header">Active Tables</div>
+                <div id="noActiveGames" style="padding-left:2em">There are currently no active tables</div>
+                <div id="activeGames" class="ui segment">
+                    <div id="joinRoomsList" class="ui relaxed divided list">
+                    </div>
+                </div>
+                <hr />
+                <br />
+                <div class="header">OR</div>
+                <br />
+                <div class="ui teal button" onclick="StartNewRoom(); return false;">Start a New Table</div>
+            </div>
+
+        </div>
+    </div>
+
+
+
+
+</body>
+
+</html>
