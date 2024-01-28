@@ -59,9 +59,9 @@
 
         .playName {
             text-align: center;
-            font-size: medium;
+            font-size: large;
             font-weight: bold;
-            color: teal;
+            color: yellow;
         }
 
         #video-grid {
@@ -120,6 +120,29 @@
             margin-bottom: 1em;
         }
 
+        .score {
+            font-size: xx-large;
+            color: yellow;
+        }
+
+        .discardCount {
+            font-size: xx-large;
+            font-weight: bold;
+        }
+
+        .obsPanel {
+            display: flex;
+            justify-content: space-between;
+            align-items: stretch;
+            align-content: stretch;
+            padding: 1em;
+            color: white;
+            background-color: black;
+            margin-bottom: 1em;
+        }
+
+
+
         table.sortable {
             border-collapse: collapse;
             width: 100%;
@@ -128,7 +151,7 @@
 
             table.sortable th, table.sortable td {
                 padding: 10px;
-                text-align:center;
+                text-align: center;
             }
 
             table.sortable thead {
@@ -141,31 +164,10 @@
             table.sortable th:hover {
                 cursor: pointer;
             }
+
             table.sortable td {
                 text-align: center;
             }
-
-            /*
-
-            table.sortable td:nth-child(1) {
-                text-align: center;
-            }
-
-            table.sortable td:nth-child(2) {
-                text-align: center;
-            }
-
-            table.sortable td:nth-child(3) {
-                text-align: center;
-            }
-
-            table.sortable td:nth-child(4) {
-                text-align: center;
-            }
-
-            table.sortable td:nth-child(5) {
-                text-align: center;
-            } */
     </style>
 
 
@@ -179,17 +181,35 @@
         const ROOM_ID = '<%= roomID %>'  // rendered by server (replaces roomID with server-side roomID variable
     </script>
     <script src="/socket.io/socket.io.js" defer></script>
+
+    <link rel="stylesheet" type="text/css" href="DataTables/datatables.min.css" />
+    <script type="text/javascript" src="DataTables/datatables.min.js"></script>
+
+    <link rel="stylesheet" type="text/css" href="chartJS/Chart.min.css" />
+    <script type="text/javascript" src="chartJS/Chart.min.js"></script>
+
     <script src="/index.js" defer></script>
-    <script src="/sortable.js" defer></script>
-    <script src="https://unpkg.com/floatthead" defer></script>
 
 </head>
 
 <body style='background:darkslategrey'>
+    <!--<audio id='chime'>
+        <source src="/Chime.mp3" />
+    </audio>-->
     <div class="ui menu" style="margin-bottom:2px">
         <div class="header item"
              style="padding-right:2em;background-color: darkslategray;color:whitesmoke;font-size: large;">
             Five Hundred - The Card Game
+        </div>
+        <div id='gameMsgPanel' class="ui message" style="width:100%;margin:0">
+            <div style="float:right">
+                <button id="gameMsgBtn" class="ui teal button" style="margin-left:2em">Continue</button>
+                <button id="addBotBtn" class="ui teal button" style="margin-left:2em" onclick="AddBot(); return false;">Add Bot</button>
+            </div>
+            <div id='gameMsgHdr' class="header">Waiting for more players...</div>
+            <p id='gameMsgText'>
+                As soon as four players join, the game will start.
+            </p>
         </div>
         <div class="right item active">
             <span id="player" style="font-size:1em;font-weight: bold;color:darkslategrey"></span>
@@ -199,11 +219,6 @@
     <div id='video-grid'></div>
 
     <div id='mainPanel'>
-        <div id='gameMsgPanel' class="ui message">
-            <div id='gameMsgHdr' class="header">Waiting for more players</div>
-            <p id='gameMsgText'>As soon as four players join, the game will start</p>
-        </div>
-
         <div id='bidPanel' class="ui raised teal hidden segment " style="margin:0">
             <span id='currentBid' style="font-size:larger">Current Bid: None</span>
             <hr />
@@ -212,8 +227,12 @@
 
                 <select id='ddlBids' class="ui selection dropdown" style="padding-top:0;padding-bottom:0;"></select>
 
-                <button id='placeBid' class="ui teal button" onclick='PlaceBid(false);return false;'>Place Bid</button>
-                <button id='passBid' class="ui button" onclick="PlaceBid(true);return false;">Pass</button>
+                <button id='placeBid' class="ui teal button" style='margin-left:2em;' onclick='PlaceBid(false);return false;'>Place Bid</button>
+
+                <i class="angle left icon"></i><i class="angle left icon"></i><i class="angle left icon"></i>
+                <span style='font-weight:bold;'> OR </span>
+                <i class="angle right icon"></i><i class="angle right icon"></i><i class="angle right icon"></i>
+                <button id='passBid' class="ui teal button" onclick="PlaceBid(true);return false;">Pass</button>
             </div>
         </div>
 
@@ -222,31 +241,45 @@
                 <span id='teamAscore' class='scoreboard' style='padding-left: 1em;'>Team A</span>
             </div>
             <div style="width:20%;text-align:center">
-                <span class='scoreboard'>Bid </span>
-                <span id="bid" class="scoreboard"></span>
-                <span id="bidSuit" class="scoreboard"></span>
+                <i class='yellow angle double left icon' id='bidArrowTeamA'></i>
+                <span class='scoreboard'>Bid: </span>
+                <span id="bid" class="score"></span>
+                <span id="bidSuit" class="score"></span>
+                <i class='yellow angle double right icon' id='bidArrowTeamB'></i>
             </div>
             <div style="width:40%;text-align:right">
                 <span id='teamBscore' class='scoreboard'>Team B</span>
             </div>
         </div>
-        <div id="obsPanel" class="scoresContainer">
-            <select id="playerToObserve" class="ui selection dropdown">
-            </select>
+        <div id="obsPanel" class="obsPanel">
+            <span style='font-size:larger;display:flex;align-self:center'>
+                <i class="glasses icon"></i>&nbsp;&nbsp;
+                <b>You are in Observer Mode</b>
+            </span>
+            <span>
+                <button id="btnObsAll" class="ui button" onclick="ObserveAll();return false;">Observe All</button>
+            </span>
+            <span>
+                <button id="btnObsA0" class="ui button" onclick="Observe(0,0);return false;">Team A Player 0</button>
+                <button id="btnObsA1" class="ui button" onclick="Observe(0,1);return false;">Team A Player 1</button>
+                vs.
+                <button id="btnObsB0" class="ui button" onclick="Observe(1,0);return false;">Team B Player 0</button>
+                <button id="btnObsB1" class="ui button" onclick="Observe(1,1);return false;">Team B Player 1</button>
+            </span>
         </div>
 
         <div id='gridPanel' class="ui grid" style="width:100%">
             <div class="row">
                 <div class="ten wide column padded">
+
                     <div class="ui raised black inverted segment" style="min-height:240px">
                         <div class="ui teal ribbon label">My Hand</div>
 
-                        <div class="ui centered grid" style="margin-left:1em;margin-right:1em;">
+                        <div id="myHand" class="ui centered grid" style="margin-left:1em;margin-right:1em">
                             <div class="row">
                                 <div style="display:inline-block;padding-top:0.3em;">
                                     <div style="text-align:center;height:0.5em"><div id="trump-spades" class="notTrump"></div></div>
                                     <div id='hand-spades' class="hand vhand-compact" style="display:inline-block">
-                                        <img class='card' src='cards/AS.svg'>
                                     </div>
                                 </div>
                                 <div style="display:inline-block;padding-top:0.3em;">
@@ -266,19 +299,219 @@
                                 </div>
                                 <div style="display:inline-block;padding-top:0.3em;">
                                     <div style="text-align:center;height:0.5em"><div class="notTrump"></div></div>
-                                    <div id='hand-extras' class="hand vhand-compact" style="display:inline-block">
-                                    </div>
+                                    <div id='hand-extras' class="hand vhand-compact" style="display:inline-block"></div>
                                 </div>
                                 <div style="display:inline-block;padding-top:0.3em;">
                                     <div style="text-align:center;height:0.5em"><div class="notTrump"></div></div>
-                                    <div id='hand-middle' class="hand vhand-compact" style="display:inline-block">
+                                    <div id='hand-middle' class="hand vhand-compact" style="display:inline-block;margin-left:6em"></div>
+                                </div>
+                                <div id='finalizeMiddle' style="display:inline-block;padding-top:0.3em;float:right">
+                                    <button id='btnFinalizeMiddle' class="ui teal button" onclick='FinalizeMiddle();return false;'>I'm done <br />with the <br />middle</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="openNelloHand" class="ui centered grid" style="margin-left:1em;margin-right:1em;">
+                            <div class="row" style="padding:0;height:3px;width:100%;background-color:teal"></div>
+                            <div class="row">
+                                <div id="on-hand" class="column playName" style="text-align:center">
+                                    <div id="on-name">Name</div>
+                                    <div class="" style="display:inline-block;padding-top:0.3em;">
+                                        <div style="text-align:center;height:0.5em">
+                                            <div id="on-trump-spades" class="notTrump"></div>
+                                        </div>
+                                        <div id='on-hand-spades' class="hand vhand-compact" data-hand="spacing:0.3;flow:vertical" style="display:inline-block">
+                                        </div>
+                                    </div>
+                                    <div style="display:inline-block;padding-top:0.3em;">
+                                        <div style="text-align:center;height:0.5em">
+                                            <div id="on-trump-clubs" class="notTrump"></div>
+                                        </div>
+                                        <div id='on-hand-clubs' class="hand vhand-compact" data-hand="spacing:0.3;flow:vertical" style="display:inline-block">
+                                        </div>
+                                    </div>
+                                    <div style="display:inline-block;padding-top:0.3em;">
+                                        <div style="text-align:center;height:0.5em">
+                                            <div id="on-trump-diamonds" class="notTrump"></div>
+                                        </div>
+                                        <div id='on-hand-diamonds' class="hand vhand-compact" style="display:inline-block">
+                                        </div>
+                                    </div>
+                                    <div style="display:inline-block;padding-top:0.3em;">
+                                        <div style="text-align:center;height:0.5em">
+                                            <div id="on-trump-hearts" class="notTrump"></div>
+                                        </div>
+                                        <div id='on-hand-hearts' class="hand vhand-compact" style="display:inline-block">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="myHandAll" class="ui centered two column grid" style="margin-left:1em;margin-right:1em;">
+                            <div class="row">
+                                <div id="obs-T0P0hand" class="column playName">
+                                    <div class="" style="display:inline-block;padding-top:0.3em;">
+                                        <div id="obs-T0P0name">T0P0 Name</div>
+                                        <div style="text-align:center;height:0.5em">
+                                            <div id="obs-T0P0-trump-spades" class="notTrump"></div>
+                                        </div>
+                                        <div id='obs-T0P0-hand-spades' class="hand vhand" data-hand="flow: vertical; spacing: 0.4; width: 65" style="display:inline-block">
+                                        </div>
+                                    </div>
+
+                                    <div style="display:inline-block;padding-top:0.3em;">
+                                        <div style="text-align:center;height:0.5em">
+                                            <div id="obs-T0P0-trump-clubs" class="notTrump"></div>
+                                        </div>
+                                        <div id='obs-T0P0-hand-clubs' class="hand vhand-compact" data-hand="flow: vertical; spacing: 0.2; width: 65" style="display:inline-block">
+                                        </div>
+                                    </div>
+                                    <div style="display:inline-block;padding-top:0.3em;">
+                                        <div style="text-align:center;height:0.5em">
+                                            <div id="obs-T0P0-trump-diamonds" class="notTrump"></div>
+                                        </div>
+                                        <div id='obs-T0P0-hand-diamonds' class="hand vhand-compact" data-hand="flow: vertical; spacing: 0.2; width: 65" style="display:inline-block">
+                                        </div>
+                                    </div>
+                                    <div style="display:inline-block;padding-top:0.3em;">
+                                        <div style="text-align:center;height:0.5em">
+                                            <div id="obs-T0P0-trump-hearts" class="notTrump"></div>
+                                        </div>
+                                        <div id='obs-T0P0-hand-hearts' class="hand vhand-compact" data-hand="flow: vertical; spacing: 0.2; width: 65" style="display:inline-block">
+                                        </div>
+                                    </div>
+                                    <div style="display:inline-block;padding-top:0.3em;">
+                                        <div style="text-align:center;height:0.5em">
+                                            <div class="notTrump"></div>
+                                        </div>
+                                        <div id='obs-T0P0-hand-extras' class="hand vhand-compact" data-hand="flow: vertical; spacing: 0.2; width: 65" style="display:inline-block"></div>
+                                    </div>
+                                </div>
+
+                                <div id="obs-T0P1hand" class="column playName">
+                                    <div class="" style="display:inline-block;padding-top:0.3em;">
+                                        <div id="obs-T0P1name">T0P1 Name</div>
+                                        <div style="text-align:center;height:0.5em">
+                                            <div id="obs-T0P1-trump-spades" class="notTrump"></div>
+                                        </div>
+                                        <div id='obs-T0P1-hand-spades' class="hand vhand-compact" style="display:inline-block"></div>
+                                    </div>
+                                    <div style="display:inline-block;padding-top:0.3em;">
+                                        <div style="text-align:center;height:0.5em">
+                                            <div id="obs-T0P1-trump-clubs" class="notTrump"></div>
+                                        </div>
+                                        <div id='obs-T0P1-hand-clubs' class="hand vhand-compact" style="display:inline-block"></div>
+                                    </div>
+                                    <div style="display:inline-block;padding-top:0.3em;">
+                                        <div style="text-align:center;height:0.5em">
+                                            <div id="obs-T0P1-trump-diamonds" class="notTrump"></div>
+                                        </div>
+                                        <div id='obs-T0P1-hand-diamonds' class="hand vhand-compact" style="display:inline-block">
+                                        </div>
+                                    </div>
+                                    <div style="display:inline-block;padding-top:0.3em;">
+                                        <div style="text-align:center;height:0.5em">
+                                            <div id="obs-T0P1-trump-hearts" class="notTrump"></div>
+                                        </div>
+                                        <div id='obs-T0P1-hand-hearts' class="hand vhand-compact" style="display:inline-block">
+                                        </div>
+                                    </div>
+                                    <div style="display:inline-block;padding-top:0.3em;">
+                                        <div style="text-align:center;height:0.5em">
+                                            <div class="notTrump"></div>
+                                        </div>
+                                        <div id='obs-T0P1-hand-extras' class="hand vhand-compact" style="display:inline-block"></div>
+                                    </div>
+                                </div>
+
+                            </div>
+
+                            <div class="row" style="padding:0;height:3px;width:100%;background-color:teal">
+                            </div>
+
+                            <div class="row">
+                                <div id="obs-T1P0hand" class="column playName">
+                                    <div id="obs-T1P0name">T1P0 Name</div>
+                                    <div class="" style="display:inline-block;padding-top:0.3em;">
+                                        <div style="text-align:center;height:0.5em">
+                                            <div id="obs-T1P0-trump-spades" class="notTrump"></div>
+                                        </div>
+                                        <div id='obs-T1P0-hand-spades' class="hand vhand-compact" data-hand="spacing:0.3;flow:vertical" style="display:inline-block">
+                                        </div>
+                                    </div>
+                                    <div style="display:inline-block;padding-top:0.3em;">
+                                        <div style="text-align:center;height:0.5em">
+                                            <div id="obs-T1P0-trump-clubs" class="notTrump"></div>
+                                        </div>
+                                        <div id='obs-T1P0-hand-clubs' class="hand vhand-compact" data-hand="spacing:0.3;flow:vertical" style="display:inline-block">
+                                        </div>
+                                    </div>
+                                    <div style="display:inline-block;padding-top:0.3em;">
+                                        <div style="text-align:center;height:0.5em">
+                                            <div id="obs-T1P0-trump-diamonds" class="notTrump"></div>
+                                        </div>
+                                        <div id='obs-T1P0-hand-diamonds' class="hand vhand-compact" style="display:inline-block">
+                                        </div>
+                                    </div>
+                                    <div style="display:inline-block;padding-top:0.3em;">
+                                        <div style="text-align:center;height:0.5em">
+                                            <div id="obs-T1P0-trump-hearts" class="notTrump"></div>
+                                        </div>
+                                        <div id='obs-T1P0-hand-hearts' class="hand vhand-compact" style="display:inline-block">
+                                        </div>
+                                    </div>
+                                    <div style="display:inline-block;padding-top:0.3em;">
+                                        <div style="text-align:center;height:0.5em">
+                                            <div class="notTrump"></div>
+                                        </div>
+                                        <div id='obs-T1P0-hand-extras' class="hand vhand-compact" style="display:inline-block"></div>
+                                    </div>
+                                </div>
+
+                                <div id="obs-T1P1hand" class="column playName">
+                                    <div id="obs-T1P1name">T1P1 Name</div>
+                                    <div class="" style="display:inline-block;padding-top:0.3em;">
+                                        <div style="text-align:center;height:0.5em">
+                                            <div id="obs-T1P1-trump-spades" class="notTrump"></div>
+                                        </div>
+                                        <div id='obs-T1P1-hand-spades' class="hand vhand-compact" style="display:inline-block">
+                                        </div>
+                                    </div>
+                                    <div style="display:inline-block;padding-top:0.3em;">
+                                        <div style="text-align:center;height:0.5em">
+                                            <div id="obs-T1P1-trump-clubs" class="notTrump"></div>
+                                        </div>
+                                        <div id='obs-T1P1-hand-clubs' class="hand vhand-compact" style="display:inline-block">
+                                        </div>
+                                    </div>
+                                    <div style="display:inline-block;padding-top:0.3em;">
+                                        <div style="text-align:center;height:0.5em">
+                                            <div id="obs-T1P1-trump-diamonds" class="notTrump"></div>
+                                        </div>
+                                        <div id='obs-T1P1-hand-diamonds' class="hand vhand-compact" style="display:inline-block">
+                                        </div>
+                                    </div>
+                                    <div style="display:inline-block;padding-top:0.3em;">
+                                        <div style="text-align:center;height:0.5em">
+                                            <div id="obs-T1P1-trump-hearts" class="notTrump"></div>
+                                        </div>
+                                        <div id='obs-T1P1-hand-hearts' class="hand vhand-compact" style="display:inline-block">
+                                        </div>
+                                    </div>
+                                    <div style="display:inline-block;padding-top:0.3em;">
+                                        <div style="text-align:center;height:0.5em">
+                                            <div class="notTrump"></div>
+                                        </div>
+                                        <div id='obs-T1P1-hand-extras' class="hand vhand-compact" style="display:inline-block"></div>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
-                    <div id='fastPlay' class="ui checkbox">
-                        <input type="checkbox" name="cbFastPlay">
+
+                    <div id='fastPlay' class="ui checked checkbox">
+                        <input type="checkbox" name="cbFastPlay" checked="">
                         <label style='color:whitesmoke;padding-right: 3em;'>Fast-play card on click</label>
                     </div>
                     <div id='validOnly' class="ui checkbox">
@@ -286,6 +519,7 @@
                         <label style='color:whitesmoke;padding-right: 3em;'>Show only valid cards in hand</label>
                     </div>
                     <span id="cardCount" style='color:whitesmoke'>Cards: </span>
+                    <span id="observers" style='color:whitesmoke;padding-left:2em'>Observers: </span>
                 </div>
                 <div class="four wide column padded">
                     <div class="ui raised black inverted segment" style="min-height:240px;min-width:240px">
@@ -295,55 +529,91 @@
                             <tr>
                                 <td style='width:33%'></td>
                                 <td id='T0P0' style='width:33%;text-align: center;'>
-                                    <span id='T0P0name' class='playName'></span><br />
+                                    <span id='T0P0hs' class='playBid' style="display:none"></span>
+                                    <span id='T0P0name' class='playName'></span>
+                                    <span id='T0P0bid' class='playBid'></span><br />
+                                    <span id='T0P0sugBid' class='playSubBid'></span><br />
                                     <img id='T0P0card' class='playCard' src='' />
                                 </td>
                                 <td style='width:33%'></td>
                             </tr>
                             <tr>
                                 <td id='T1P1' style='text-align: center;'>
-                                    <span id='T1P1name' class='playName'></span><br />
+                                    <span id='T1P1hs' class='playBid' style="display:none"></span>
+                                    <span id='T1P1name' class='playName'></span>
+                                    <span id='T1P1bid' class='playBid'></span><br />
+                                    <span id='T1P1sugBid' class='playSubBid'></span><br />
                                     <img id='T1P1card' class='playCard' src='' />
                                 </td>
                                 <td></td>
                                 <td id='T1P0' style='text-align: center;'>
-                                    <span id='T1P0name' class='playName'></span><br />
+                                    <span id='T1P0hs' class='playBid' style="display:none"></span>
+                                    <span id='T1P0name' class='playName'></span>
+                                    <span id='T1P0bid' class='playBid'></span><br />
+                                    <span id='T1P0sugBid' class='playSubBid'></span><br />
                                     <img id='T1P0card' class='playCard' src='' />
                                 </td>
                             </tr>
                             <tr>
                                 <td></td>
                                 <td id='T0P1' style='text-align: center;'>
-                                    <span id='T0P1name' class='playName'></span><br />
-                                    <img id='T0P1card' class='playCard' src=''></img>
+                                    <span id='T0P1hs' class='playBid' style="display:none"></span>
+                                    <span id='T0P1name' class='playName'></span>
+                                    <span id='T0P1bid' class='playBid'></span><br />
+                                    <span id='T0P1sugBid' class='playSubBid'></span><br />
+                                    <img id='T0P1card' class='playCard' src='' />
                                 </td>
                                 <td></td>
                             </tr>
                         </table>
                     </div>
-
+                    <!--
+                    <div class="ui form">
+                        <div name="obsHSorSB" class="inline fields">
+                            <div class="field">
+                                <div class="ui radio checkbox">
+                                    <input id="rbHS" type="radio" name="HSorSB" checked="checked">
+                                    <label style='color:whitesmoke;'>Hand Strength</label>
+                                </div>
+                            </div>
+                            <div class="field">
+                                <div class="ui radio checkbox">
+                                    <input id="rbSB" type="radio" name="HSorSB">
+                                    <label style='color:whitesmoke;'>Suggested Bid</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>-->
                 </div>
             </div>
-            <div class="row">
-                <div class="four wide column padded">
-                    <div class="ui raised black inverted segment" style="height:20em">
-                        <div class="ui teal ribbon label">Chat</div>
+            <div class="row" style="height:40em">
+                <div class="eight wide column padded" style="height:36em">
+                    <div class="ui raised black inverted segment" style="height:34em">
+                        <div class="ui teal ribbon label">Hand Strengths</div>
                         <br />
+
+                        <div id="hsChart">
+                            <canvas id="myChart" style="min-height:32em"></canvas>
+                        </div>
+
+                        <!--
                         <ul id="messages" class="loglist"></ul>
 
                         <div class="ui action input" style="width:80%">
                             <input id="m" type="text" style="width:90%" placeholder="Type your message here...">
                             <button class="ui button" onclick="SendChatMessage();return false;">Send</button>
-                        </div>
+                        </div> -->
                     </div>
                 </div>
-                <div class="six wide column padded">
-                    <div class="ui raised black inverted segment" style="height:20em;text-align:center">
-                        <div class="ui teal label" style="text-align:center">Leaderboard</div>
+                <div class="seven wide column padded" style="height:36em">
+                    <div class="ui raised black inverted segment" style="height:34em;">
+                        <div class="ui teal right ribbon label">Leaderboard</div>
                         <br />
-                        <div id="leaderboard" style="overflow:auto;max-height:16em"></div>
+                        <!--<div id="leaderboard" style="overflow:auto;max-height:16em"></div> -->
+                        <table id="leaderboard" style="overflow:auto;width:100%"></table>
                     </div>
-                </div>
+                </div> 
+                <!--
                 <div class="four wide column padded">
                     <div class="ui raised black inverted segment" style="height:20em">
                         <div class="ui teal right ribbon label">Game Info</div>
@@ -357,21 +627,39 @@
                         <br />
                         <br />
                         <span><b>Observers</b></span><br />
-                        <span style="padding-left:2em" id="observers"><b>Observers:</b></span>
+                        <span style="padding-left:2em" id="observers"></span>
                     </div>
                 </div>
+                -->
             </div>
 
             <div class="row">
                 <div class="sixteen wide column">
                     <hr />
                     <div class="ui teal right button" onclick="StartGame(true); return false;">Restart Game</div>
+                    <div id='twoJokers' class="ui checkbox">
+                        <input type="checkbox" name="cbTwoJokers">
+                        <label style='color:whitesmoke;padding-right: 3em;'>Use TWO Jokers</label>
+                    </div>
+
+
+                    <div class="ui teal right button" onclick="Redeal(); return false;">Redeal Hand</div>
                 </div>
             </div>
         </div>
     </div>
 
-    <div id='approveDiscard' class="ui mini inverted modal hidden">
+    <div id='suggestedBid' class="ui mini modal hidden">
+        <div class="content">
+            <p>Your suggested bid is <span id='sugBid'></span></p>
+        </div>
+        <div class="actions">
+            <div class="ui approve button">Close</div>
+        </div>
+    </div>
+
+
+    <div id='approveDiscard' class="ui mini modal hidden">
         <div class="header">Discard this card?</div>
         <div class="content">
             <p>Do you want to discard the <span id='discardCard'></span></p>
@@ -383,7 +671,7 @@
         </div>
     </div>
 
-    <div id='approvePlay' class="ui mini inverted modal hidden">
+    <div id='approvePlay' class="ui mini modal hidden">
         <div class="header">Play this card?</div>
         <div class="content">
             <p>Do you want to play the <span id='cardToPlay'></span>?</p>
@@ -394,7 +682,7 @@
         </div>
     </div>
 
-    <div id='illegalPlay' class="ui mini inverted modal hidden">
+    <div id='illegalPlay' class="ui mini modal hidden">
         <div class="header">This is not a valid card to play!</div>
         <div class="content">
             <p>The <span id='illegalCard'></span> can not be played in the current context.</p>
@@ -405,7 +693,7 @@
     </div>
 
 
-    <div id='confirmBid' class="ui mini inverted modal hidden">
+    <div id='confirmBid' class="ui mini modal hidden">
         <div class="header">Confirm Bid</div>
         <div class="content">
             <p>Are you sure you want to bid <span id='proposedBid'></span>?</p>
@@ -416,25 +704,36 @@
         </div>
     </div>
 
-    <div id='handCompleted' class="ui mini inverted modal hidden">
+    <div id='confirmPassBid' class="ui mini modal hidden">
+        <div class="header">Confirm Pass</div>
+        <div class="content">
+            <p>Are you sure you want to <b>PASS</b>?</p>
+        </div>
+        <div class="actions">
+            <div class="ui approve button">Yes</div>
+            <div class="ui cancel button">No</div>
+        </div>
+    </div>
+
+    <div id='handCompleted' class="ui mini modal hidden">
         <div id="hdrHand" class="header"></div>
         <div class="content">
             <p><span id='contentHand'></span><p>
-            <hr/>
-            <img id="handCompletedImg" style="width:100%" src="" />
+                <hr />
+                <img id="handCompletedImg" style="width:100%" src="" />
         </div>
         <div class="actions">
             <div class="ui approve button">Continue</div>
         </div>
     </div>
-    
+
 
     <div id='gameCompleted' class="ui mini inverted modal hidden">
         <div id="winner" class="header"></div>
         <div class="content">
             <p><span id='loser'></span><p>
-        <hr />
-        <img id="gameCompletedImg" style="width:100%" src="" />
+                <hr />
+                <img id="gameCompletedImg" style="width:100%" src="" />
         </div>
         <div class="actions">
             <div class="ui approve button">Continue</div>
@@ -446,31 +745,42 @@
         <div class="content">
 
             <div id='joinpanel' style="width:50%">
+
+                <div id='joinMsg' class="ui green message">
+                    <div class="header">Enter your name below.</div>
+                </div>
+
                 <div class="ui labeled input">
-                    <div class="ui label">Name:</div>
-                    <input id="username1" type="text" placeholder="Your name..." />
+                    <div class="ui label">Enter your Name:</div>
+                    <input id="username1" type="text" placeholder="New Player..." />
+                    <div class="ui label"> -- OR --  Select your Name from this list:</div>
+                    <select id="selectUser" onchange="SelectUserName">
+                        <option value="">--Select from below--</option>
+                    </select>
+
                 </div>
-                <hr />
-                <br />
-                <div class="header">Active Tables</div>
-                <div id="noActiveGames" style="padding-left:2em">There are currently no active tables</div>
-                <div id="activeGames" class="ui segment">
-                    <div id="joinRoomsList" class="ui relaxed divided list">
+                    <hr />
+                    <br />
+                    <div class="header">Active Tables</div>
+                    <div id="noActiveGames" style="padding-left:2em">There are currently no active tables</div>
+                    <div id="activeGames" class="ui segment">
+                        <div id="joinRoomsList" class="ui relaxed divided list">
+                        </div>
                     </div>
+                    <hr />
+                    <br />
+                    <div class="header">OR</div>
+                    <br />
+                    <div class="ui teal button" onclick="StartNewRoom(); return false;">Start a New Table</div>
                 </div>
-                <hr />
-                <br />
-                <div class="header">OR</div>
-                <br />
-                <div class="ui teal button" onclick="StartNewRoom(); return false;">Start a New Table</div>
-            </div>
 
         </div>
     </div>
-
-
-
-
+    <!--
+        <div id="hsChart">
+            <canvas id="myChart" style="width:400px;height:400px"></canvas>
+        </div>
+        -->
 </body>
 
 </html>
